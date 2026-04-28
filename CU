@@ -1,0 +1,46 @@
+
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<title>Global Multilingual Repair Tool</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f5f6f8;margin:0;padding:20px}.wrap{max-width:1150px;margin:auto;background:#fff;padding:22px;border-radius:14px;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px}
+textarea,input,button{width:100%;box-sizing:border-box;padding:10px;border:1px solid #ccc;border-radius:8px;margin-top:10px}textarea{min-height:430px}button{background:#111;color:#fff;cursor:pointer}.small{font-size:13px;color:#666}
+</style>
+</head>
+<body>
+<div class='wrap'>
+<h2>Global Multilingual Repair Tool</h2>
+<div class='small'>Repairs UTF-8 / Latin1 / Windows-1252 corruption for Western + Japanese + Chinese + Korean text. Same rows preserved.</div>
+<div class='grid'>
+<textarea id='input' oninput='processData()' placeholder='æ¸¡é‚Šå¤§æ¨¹&#10;CrÃ©dit Agricole&#10;Administraciâˆšâ‰¥n'></textarea>
+<textarea id='output' readonly placeholder='Fixed output'></textarea>
+</div>
+<input id='filename' value='cleaned.txt'>
+<div class='actions'>
+<button onclick='processData()'>Convert</button>
+<button onclick='copyOutput()'>Copy</button>
+<button onclick='downloadFile()'>Download</button>
+</div>
+<button onclick='clearAll()'>Clear</button>
+<div id='stats' class='small'></div>
+</div>
+<script>
+const latinMap={'Ã¡':'á','Ã©':'é','Ã­':'í','Ã³':'ó','Ãº':'ú','Ã±':'ñ','Ãœ':'Ü','Ã¼':'ü','Ã–':'Ö','Ã¶':'ö','Ã„':'Ä','Ã¤':'ä','â€™':'’','â€“':'–','â€”':'—','â€œ':'“','â€':'”'};
+const mixedMap={'âˆšâ‰¥':'ó','âˆšÃ¬':'Ó','âˆšÃ¶':'Ú','âˆšÃ±':'ñ'};
+function mapReplace(s,obj){for(const k in obj){s=s.split(k).join(obj[k]);}return s;}
+function decodeBytes(str){try{const bytes=new Uint8Array(Array.from(str).map(c=>c.charCodeAt(0)&255));return new TextDecoder('utf-8').decode(bytes);}catch(e){return str;}}
+function legacyFix(str){try{return decodeURIComponent(escape(str));}catch(e){return str;}}
+function hasCJK(s){return /[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/.test(s);} 
+function score(s){let good=(s.match(/[áéíóúñüöäßàèìòùçÁÉÍÓÚÑÜÖÄ]|[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/g)||[]).length;let bad=(s.match(/[Ãâ�]/g)||[]).length;return good-bad;}
+function repair(line){let best=line;for(let i=0;i<5;i++){let t=best;t=mapReplace(t,mixedMap);t=mapReplace(t,latinMap);let d1=decodeBytes(t);let d2=legacyFix(t);if(score(d1)>score(t)) t=d1;if(score(d2)>score(t)) t=d2;t=mapReplace(t,latinMap);if(t===best) break;best=t;}return best.normalize?best.normalize('NFC'):best;}
+function processData(){const raw=document.getElementById('input').value||'';const lines=raw.split(/\r?\n/);const out=lines.map(repair);document.getElementById('output').value=out.join('\n');const changed=out.filter((v,i)=>v!==lines[i]).length;document.getElementById('stats').innerText='Rows: '+lines.length+' | Changed: '+changed;}
+function copyOutput(){processData();navigator.clipboard.writeText(document.getElementById('output').value);} 
+function downloadFile(){processData();const blob=new Blob([document.getElementById('output').value],{type:'text/plain;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=document.getElementById('filename').value||'cleaned.txt';a.click();URL.revokeObjectURL(a.href);} 
+function clearAll(){document.getElementById('input').value='';document.getElementById('output').value='';document.getElementById('stats').innerText='';}
+</script>
+</body>
+</html>
